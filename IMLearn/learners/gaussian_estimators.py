@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+import numpy.random
 from numpy.linalg import inv, det, slogdet
 
 
@@ -51,7 +52,10 @@ class UnivariateGaussian:
         Sets `self.mu_`, `self.var_` attributes according to calculated estimation (where
         estimator is either biased or unbiased). Then sets `self.fitted_` attribute to `True`
         """
-        raise NotImplementedError()
+        self.mu_ = X.mean()
+
+        var_factor = len(X) if self.biased_ else (len(X)-1)
+        self.var_ = np.sum((X - self.mu_)**2) / var_factor
 
         self.fitted_ = True
         return self
@@ -76,7 +80,7 @@ class UnivariateGaussian:
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        raise NotImplementedError()
+        return np.exp(- ((X - self.mu_)**2) / (2*self.var_)) / np.sqrt(2 * np.pi * self.var_)
 
     @staticmethod
     def log_likelihood(mu: float, sigma: float, X: np.ndarray) -> float:
@@ -97,7 +101,7 @@ class UnivariateGaussian:
         log_likelihood: float
             log-likelihood calculated
         """
-        raise NotImplementedError()
+        return -0.5 * (np.sum((X - mu)**2)/sigma + len(X)*np.log(2 * np.pi * sigma))
 
 
 class MultivariateGaussian:
@@ -143,7 +147,10 @@ class MultivariateGaussian:
         Sets `self.mu_`, `self.cov_` attributes according to calculated estimation.
         Then sets `self.fitted_` attribute to `True`
         """
-        raise NotImplementedError()
+        self.mu_ = X.mean(axis=0)
+
+        X_centered = X - self.mu_
+        self.cov_ = X_centered.T @ X_centered / (len(X)-1)
 
         self.fitted_ = True
         return self
@@ -168,7 +175,9 @@ class MultivariateGaussian:
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        raise NotImplementedError()
+        X_centered = X - self.mu_
+        return np.exp(-np.einsum("nj,jk,nk->n", X_centered, inv(self.cov_), X_centered) / 2) / \
+            np.sqrt(det(self.cov_) * (2*np.pi)**len(X[0]))
 
     @staticmethod
     def log_likelihood(mu: np.ndarray, cov: np.ndarray, X: np.ndarray) -> float:
@@ -189,4 +198,6 @@ class MultivariateGaussian:
         log_likelihood: float
             log-likelihood calculated over all input data and under given parameters of Gaussian
         """
-        raise NotImplementedError()
+        X_centered = X - mu
+        return -0.5 * (np.einsum("nj,jk,nk", X_centered, inv(cov), X_centered) +
+                       len(X) * (slogdet(cov)[1] + len(X[0]) * np.log(2*np.pi)))

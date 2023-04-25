@@ -9,7 +9,7 @@ import plotly.io as pio
 pio.templates.default = "simple_white"
 
 
-FEATURES_NOT_USED_IN_MODEL = ["id", 'lat', 'long', 'sqft_living15', 'sqft_lot15', ]
+FEATURES_NOT_USED_IN_MODEL = ["id", "lat", "long", "sqft_living15", "sqft_lot15", ]
 mean_values = {}
 
 
@@ -48,18 +48,14 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
 
         res = res[(res["yr_built"] <= res["date"]) & (res["yr_renovated"] <= res["date"])]
 
-        # res = res[res["grade"].isin(range(2, 13)) &
-        #           (res["bedrooms"] < 15) &
-        #           (res["sqft_lot"] < 1000000)]
-
         for feature in res:
             mean_values[feature] = res[feature].mean()
     else:  # Processing Test Data
         res = res.fillna(value=mean_values)
         res["date"] = res["date"].astype(int)
 
-    res['age'] = res.apply(lambda row: row["date"] - row["yr_built"], axis=1)
-    res['age_renovated'] = res.apply(
+    res["age"] = res.apply(lambda row: row["date"] - row["yr_built"], axis=1)
+    res["age_renovated"] = res.apply(
         lambda row: row["age"] if row["yr_renovated"] == 0 else row["date"] - row["yr_renovated"], axis=1
     )
     res = res.drop(columns=["date", "yr_built", "yr_renovated"])
@@ -92,14 +88,14 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     for feature in X:
         f_col = X[feature].astype(np.float64)
         corr = np.cov(f_col, y)[0, 1] / (np.std(f_col) * np.std(y))
-        px.scatter(pd.DataFrame({'x': f_col, 'y': y}), x="x", y="y",
+        px.scatter(pd.DataFrame({"x": f_col, "y": y}), x="x", y="y",
                    title=f"Response as Function of {feature}<br>"
                          f"Pearson Correlation between {feature} and response: {corr}",
-                   labels={"x": f"{feature}", "y": "Response"}
+                   labels={"x": f"{feature}", "y": "Response"}, trendline="ols"
                    ).write_html(output_path + f"/{feature}_pearson_correlation_with_response.html")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     np.random.seed(0)
     df = pd.read_csv("../datasets/house_prices.csv")
 
@@ -138,7 +134,7 @@ if __name__ == '__main__':
 
     go.Figure([go.Scatter(x=percentages, y=mean, mode="markers+lines"),
                go.Scatter(x=percentages, y=mean - 2 * std, mode="lines", line=dict(color="lightgrey")),
-               go.Scatter(x=percentages, y=mean + 2 * std, fill='tonexty', mode="lines", line=dict(color="lightgrey"))],
+               go.Scatter(x=percentages, y=mean + 2 * std, fill="tonexty", mode="lines", line=dict(color="lightgrey"))],
               layout=go.Layout(title="MSE Over Test Set as Function of Training Size",
                                xaxis_title="Percentage of Training Set",
                                yaxis_title="MSE Over Test Set",

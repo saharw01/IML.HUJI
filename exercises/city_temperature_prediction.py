@@ -46,6 +46,7 @@ def load_data(filename: str) -> pd.DataFrame:
     res["DayOfYear"] = res["Date"].dt.dayofyear
     lower, upper = lower_upper(res["Temp"])
     res = res[(lower <= res["Temp"]) & (res["Temp"] <= upper)]
+    res["Year"] = res["Year"].astype(str)  # convert to string so that color scale will be discrete in plots
     return res
 
 
@@ -56,9 +57,13 @@ if __name__ == '__main__':
 
     # Question 2 - Exploring data for specific country
     israel_df = df[df["Country"] == "Israel"]
-    px.scatter(israel_df, x="DayOfYear", y="Temp", color="Year").write_html("Israel_temp_over_day_of_year.html")
-    px.bar(israel_df.groupby("Month", as_index=False).agg(temp_std=("Temp", "std")), x="Month", y="temp_std",
-           title="Israel Temperature Standard Deviation per Month"
+
+    px.scatter(israel_df, x="DayOfYear", y="Temp", color="Year",
+               title="Israel Temperature as Function of Days of The Year"
+               ).write_html("Israel_temp_over_day_of_year.html")
+
+    px.bar(israel_df.groupby("Month", as_index=False).agg(temp_std=("Temp", "std")),
+           x="Month", y="temp_std", title="Israel Temperature Standard Deviation per Month"
            ).write_html("Israel_temp_std_per_month.html")
 
     # Question 3 - Exploring differences between countries
@@ -69,13 +74,29 @@ if __name__ == '__main__':
 
     # Question 4 - Fitting model for different values of `k`
     train_X, train_y, test_X, test_y = split_train_test(israel_df["DayOfYear"], israel_df["Temp"])
-    losses = np.zeros(10)
-    for k in range(losses.shape[0]):
-        losses[k] = PolynomialFitting(k+1).fit(train_X, train_y).loss(test_X, test_y)
-    losses = np.round(losses, 2)
-    px.bar(losses, labels={"x": "Polynomial Model Degree", "y": "MSE Over Test Set"},
-           title="MSE Over Test Set per Polynomial Model Degree"
-           ).write_html("Israel_temp_prediction_mse_per_poly_model_degree.html")
+
+    losses = {}
+    for k in range(1, 11):
+        losses[k] = PolynomialFitting(k).fit(train_X, train_y).loss(test_X, test_y)
+        losses[k] = np.round(losses[k], 2)
+    losses = pd.DataFrame(losses.items(), columns=["poly_deg", "loss"])
+
+    print(losses)
+    px.bar(losses, x="poly_deg", y="loss", text="loss",
+           title="Israel Models MSE Over Test Set per Polynomial Model Degree"
+           ).write_html("Israel_temp_prediction_mse_per_poly_deg.html")
 
     # Question 5 - Evaluating fitted model on different countries
-    raise NotImplementedError()
+    k = int(losses.iloc[losses["loss"].idxmin()]["poly_deg"])
+    israel_model = PolynomialFitting(k).fit(israel_df["DayOfYear"], israel_df["Temp"])
+
+    losses = {}
+    for country in df["Country"].unique():
+        country_df = df[df["Country"] == country]
+        losses[country] = israel_model.loss(country_df["DayOfYear"], country_df["Temp"])
+        losses[country] = np.round(losses[country], 2)
+    losses = pd.DataFrame(losses.items(), columns=["country", "loss"])
+
+    px.bar(losses, x="country", y="loss", color="country", text="loss",
+           title="Israel Model MSE Over Entire Data per Country"
+           ).write_html("temp_prediction_mse_per_country.html")

@@ -1,3 +1,5 @@
+import os.path
+
 from IMLearn.learners.classifiers import Perceptron, LDA, GaussianNaiveBayes
 from typing import Tuple
 from utils import *
@@ -38,14 +40,19 @@ def run_perceptron():
     """
     for n, f in [("Linearly Separable", "linearly_separable.npy"), ("Linearly Inseparable", "linearly_inseparable.npy")]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset(f"../datasets/{f}")
 
         # Fit Perceptron and record loss in each fit iteration
         losses = []
-        raise NotImplementedError()
+        Perceptron(
+            callback=lambda p, _, __: losses.append(p.loss(X, y))
+        ).fit(X, y)
 
         # Plot figure of loss as function of fitting iteration
-        raise NotImplementedError()
+        px.line(
+            losses, labels={"value": "Misclassification Error", "index": "Iteration"},
+            title=f"Perceptron Error per Iteration on {n} dataset"
+        ).update(layout_showlegend=False).write_html(f"perceptron_on_{n.lower().replace(' ', '_')}.html")
 
 
 def get_ellipse(mu: np.ndarray, cov: np.ndarray):
@@ -79,25 +86,51 @@ def compare_gaussian_classifiers():
     """
     for f in ["gaussian1.npy", "gaussian2.npy"]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset(f"../datasets/{f}")
 
         # Fit models and predict over training set
-        raise NotImplementedError()
+        gnb, lda = GaussianNaiveBayes().fit(X, y), LDA().fit(X, y)
+        lda.likelihood(X)
+        gnb_pred, lda_pred = gnb.predict(X), lda.predict(X)
 
         # Plot a figure with two suplots, showing the Gaussian Naive Bayes predictions on the left and LDA predictions
         # on the right. Plot title should specify dataset used and subplot titles should specify algorithm and accuracy
         # Create subplots
         from IMLearn.metrics import accuracy
-        raise NotImplementedError()
+        fig = make_subplots(cols=2, subplot_titles=(
+            f"Gaussian Naive Bayes, accuracy={np.round(accuracy(y, gnb_pred), 3)}",
+            f"LDA, accuracy={np.round(accuracy(y, lda_pred), 3)}"
+        ))
 
         # Add traces for data-points setting symbols and colors
-        raise NotImplementedError()
+        x1, x2 = X[:, 0], X[:, 1]
+        fig.add_trace(go.Scatter(
+            x=x1, y=x2, mode="markers",
+            marker=dict(color=gnb_pred, symbol=class_symbols[y], colorscale=class_colors(3)),
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=x1, y=x2, mode="markers",
+            marker=dict(color=lda_pred, symbol=class_symbols[y], colorscale=class_colors(3)),
+        ), row=1, col=2)
 
         # Add `X` dots specifying fitted Gaussians' means
-        raise NotImplementedError()
+        fig.add_trace(go.Scatter(
+            x=gnb.mu_[:, 0], y=gnb.mu_[:, 1], mode="markers", marker=dict(symbol="x", size=10, color="black")
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=lda.mu_[:, 0], y=lda.mu_[:, 1], mode="markers", marker=dict(symbol="x", size=10, color="black")
+        ), row=1, col=2)
 
         # Add ellipses depicting the covariances of the fitted Gaussians
-        raise NotImplementedError()
+        for k in range(len(gnb.classes_)):
+            fig.add_trace(get_ellipse(gnb.mu_[k], np.diag(gnb.vars_[k])), row=1, col=1)
+        for k in range(len(lda.classes_)):
+            fig.add_trace(get_ellipse(lda.mu_[k], lda.cov_), row=1, col=2)
+
+        n = os.path.splitext(f)[0]
+        fig.update_layout(title_text=f"Gaussian Classifiers Comparison on {n} dataset", title_x=0.5,
+                          showlegend=False)
+        fig.write_html(f"classifiers_comparison_on_{n}.html")
 
 
 if __name__ == '__main__':
